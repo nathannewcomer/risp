@@ -1,70 +1,81 @@
+use std::{iter::Peekable, slice::Iter};
+
 use crate::lexer::Token;
 
 #[derive(PartialEq, Debug)]
-pub enum ParseError {
-    NoMatches,
-    UnexpectedToken(Token),
-    UnexpectedEOF,
-}
-
-#[derive(PartialEq, Debug)]
 pub enum Expr {
-    Atom(Atom),
-    List { car: Box<Expr>, cdr: Box<Expr> },
+    Nil,
+    Number(f64),
+    Symbol(String),
+    List(Vec<Expr>),
+}
+
+impl Expr {
+    pub fn print(&self) -> String {
+        let mut output = String::new();
+
+        match self {
+            Expr::Number(num) => output.push_str(&num.to_string()),
+            Expr::Symbol(s) => output.push_str(s),
+            Expr::List(list) => {
+                let s = list
+                    .iter()
+                    .map(|l| l.print())
+                    .collect::<Vec<String>>()
+                    .join(" ");
+
+                output.push('(');
+                output.push_str(&s);
+                output.push(')');
+            }
+            Expr::Nil => output.push_str("nil"),
+        }
+
+        output
+    }
 }
 
 #[derive(PartialEq, Debug)]
-pub enum Atom {
-    Nil,
-    String(String),
-    Number(f64),
+pub enum ParseError {
+    UnexpectedToken(Token),
+    UnexpectedEndOfInput,
 }
 
-pub fn parse(tokens: &[Token]) -> Result<(Expr, &[Token]), ParseError> {
-    parse_expr(tokens)
-}
-
-fn parse_expr(tokens: &[Token]) -> Result<(Expr, &[Token]), ParseError> {
-    // if LPAREN, parse list
-    // else, parse atom
-    match tokens.split_first() {
-        Some((Token::LParen, rest)) => parse_list(rest),
-        Some((atom, rest)) => parse_atom(tokens),
-        None => Ok((Expr::Atom(Atom::Nil), &[])),
+pub fn parse(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
+    match tokens.peek() {
+        Some(Token::LParen) => parse_list(tokens),
+        Some(Token::Number(num)) => {
+            tokens.next();
+            Ok(Expr::Number(*num))
+        }
+        Some(Token::String(s)) => {
+            tokens.next();
+            Ok(Expr::Symbol(s.clone()))
+        }
+        Some(token) => Err(ParseError::UnexpectedToken((*token).clone())),
+        None => Err(ParseError::UnexpectedEndOfInput),
     }
 }
 
-fn parse_list(tokens: &[Token]) -> Result<(Expr, &[Token]), ParseError> {}
+fn parse_list(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
+    expect(tokens, Token::LParen)?;
 
-fn parse_atom(tokens: &[Token]) -> Result<(Expr, &[Token]), ParseError> {
-    match tokens.split_first() {
-        Some((Token::Number(num), rest)) => Ok((Expr::Atom(Atom::Number(*num)), rest)),
-        Some((Token::String(s), rest)) => Ok((Expr::Atom(Atom::String(s.clone())), rest)),
-        _ => Err(ParseError::NoMatches),
+    let mut list: Vec<Expr> = Vec::new();
+
+    while !matches!(tokens.peek(), Some(Token::RParen)) {
+        let expr = parse(tokens)?;
+        list.push(expr);
     }
+
+    expect(tokens, Token::RParen)?;
+
+    Ok(Expr::List(list))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_atom() {
-        let input = vec![Token::Number(123.456)];
-        let expected = Expr::Atom(Atom::Number(123.456));
-
-        let (result, rest) = parse_atom(&input).unwrap();
-        assert_eq!(expected, result);
-        assert_eq!(0, rest.iter().count());
-    }
-
-    #[test]
-    fn test_parse_string() {
-        let input = vec![Token::String("hello".to_string())];
-        let expected = Expr::Atom(Atom::String("hello".to_string()));
-
-        let (result, rest) = parse_atom(&input).unwrap();
-        assert_eq!(expected, result);
-        assert_eq!(0, rest.iter().count());
+// consumes the token if it matches
+fn expect(tokens: &mut Peekable<Iter<Token>>, token: Token) -> Result<(), ParseError> {
+    match tokens.next_if(|t| matches!(t, token)) {
+        Some(_) => Ok(()),
+        None => Err(ParseError::UnexpectedToken(token)),
     }
 }

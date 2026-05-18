@@ -1,17 +1,19 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     Number(f64),
     String(String),
     LParen,
     RParen,
+    Dot,
 }
 
 #[derive(Debug)]
 pub enum LexerError {
     UnknownSymbol(char),
+    NumberParseError(String),
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
@@ -33,6 +35,10 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
                 chars.next();
                 Token::RParen
             }
+            '.' => {
+                chars.next();
+                Token::Dot
+            }
             ch if is_valid_symbol_char(ch) => tokenize_symbol(&mut chars)?,
             ch => return Err(LexerError::UnknownSymbol(ch.clone())),
         };
@@ -50,7 +56,6 @@ fn tokenize_symbol(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError>
         symbol.push(c);
     }
 
-    // Turn into number is possible, else it's a string
     match symbol.parse::<f64>() {
         Ok(num) => Ok(Token::Number(num)),
         Err(_) => Ok(Token::String(symbol)),
@@ -102,6 +107,21 @@ mod tests {
         let expected = Token::Number(-1234.0);
 
         let result = tokenize_symbol(&mut input).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_tokenize_cons() {
+        let input = "(1 . 2)";
+        let expected = vec![
+            Token::LParen,
+            Token::Number(1.0),
+            Token::Dot,
+            Token::Number(2.0),
+            Token::RParen,
+        ];
+
+        let result = tokenize(&input).unwrap();
         assert_eq!(expected, result);
     }
 

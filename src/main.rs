@@ -20,13 +20,22 @@ fn main() {
         }
 
         // tokenize input
-        let tokens = lexer::tokenize(&line);
-        match tokens {
-            Ok(result) => println!("Tokens: {:?}", result),
-            Err(reason) => println!("Error: {:?}", reason),
-        }
+        let tokens = match lexer::tokenize(&line) {
+            Ok(result) => result,
+            Err(reason) => {
+                println!("Error: {:?}", reason);
+                continue;
+            }
+        };
 
-        // // Parse input
-        // let sexpr = parser::parse(&line);
+        // Parse input
+        let mut tokens_peekable = tokens.iter().peekable();
+        match parser::parse(&mut tokens_peekable) {
+            Ok(e) => println!("Parsed expr: {:?}", e.print()),
+            Err(err) => {
+                println!("Parse error: {:?}", err);
+                continue;
+            }
+        };
     }
 }
