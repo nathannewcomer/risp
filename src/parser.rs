@@ -3,6 +3,13 @@ use std::{iter::Peekable, slice::Iter};
 use crate::lexer::Token;
 
 #[derive(PartialEq, Debug)]
+pub enum ParseError {
+    UnexpectedToken(Token),
+    UnexpectedEndOfInput,
+    ExpectedEOF,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Expr {
     Nil,
     Number(f64),
@@ -35,13 +42,21 @@ impl Expr {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub enum ParseError {
-    UnexpectedToken(Token),
-    UnexpectedEndOfInput,
+pub fn parse(tokens: &[Token]) -> Result<Expr, ParseError> {
+    let mut tokens_peekable = tokens.iter().peekable();
+    let expr = parse_expr(&mut tokens_peekable);
+
+    // Make sure only EOF is left
+    match tokens_peekable.peek() {
+        Some(Token::EOF) => (),
+        Some(other) => return Err(ParseError::UnexpectedToken((*other).clone())),
+        None => return Err(ParseError::ExpectedEOF),
+    }
+
+    expr
 }
 
-pub fn parse(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
+fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
     match tokens.peek() {
         Some(Token::LParen) => parse_list(tokens),
         Some(Token::Number(num)) => {
@@ -63,7 +78,7 @@ fn parse_list(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
     let mut list: Vec<Expr> = Vec::new();
 
     while !matches!(tokens.peek(), Some(Token::RParen)) {
-        let expr = parse(tokens)?;
+        let expr = parse_expr(tokens)?;
         list.push(expr);
     }
 

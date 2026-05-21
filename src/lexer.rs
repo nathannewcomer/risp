@@ -8,12 +8,12 @@ pub enum Token {
     LParen,
     RParen,
     Dot,
+    EOF,
 }
 
 #[derive(Debug)]
 pub enum LexerError {
     UnknownSymbol(char),
-    NumberParseError(String),
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
@@ -45,6 +45,9 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
 
         tokens.push(token);
     }
+
+    // Add EOF at end
+    tokens.push(Token::EOF);
 
     Ok(tokens)
 }
