@@ -6,6 +6,7 @@ use crate::lexer::Token;
 pub enum ParseError {
     UnexpectedToken(Token),
     UnexpectedEndOfInput,
+    UnexpectedEndOfList,
     ExpectedEOF,
 }
 
@@ -14,7 +15,15 @@ pub enum Expr {
     Nil,
     Number(f64),
     Symbol(String),
-    List(Vec<Expr>),
+    String(String),
+    List(Cons),
+    Cons(Cons),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Cons {
+    car: Box<Expr>,
+    cdr: Box<Expr>,
 }
 
 impl Expr {
@@ -23,16 +32,13 @@ impl Expr {
 
         match self {
             Expr::Number(num) => output.push_str(&num.to_string()),
-            Expr::Symbol(s) => output.push_str(s),
-            Expr::List(list) => {
-                let s = list
-                    .iter()
-                    .map(|l| l.print())
-                    .collect::<Vec<String>>()
-                    .join(" ");
-
+            Expr::Symbol(sym) => output.push_str(sym),
+            Expr::String(s) => output.push_str(&format!("\"{}\"", s).to_string()),
+            Expr::Cons(cons) => {
                 output.push('(');
-                output.push_str(&s);
+                output.push_str(&cons.car.print());
+                output.push('.');
+                output.push_str(&cons.cdr.print());
                 output.push(')');
             }
             Expr::Nil => output.push_str("nil"),
@@ -40,7 +46,11 @@ impl Expr {
 
         output
     }
-}
+}    Visual: Think of it as a single domino or a box split into two halves: [ Left | Right ].
+Contents: The left side (CAR) holds a value. The right side (CDR) holds another value or a pointer to the next cell.
+Notation: Written in dotted notation as (A . B).
+
+
 
 pub fn parse(tokens: &[Token]) -> Result<Expr, ParseError> {
     let mut tokens_peekable = tokens.iter().peekable();
@@ -65,6 +75,10 @@ fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
         }
         Some(Token::String(s)) => {
             tokens.next();
+            Ok(Expr::String(s.clone()))
+        }
+        Some(Token::Symbol(s)) => {
+            tokens.next();
             Ok(Expr::Symbol(s.clone()))
         }
         Some(token) => Err(ParseError::UnexpectedToken((*token).clone())),
@@ -75,16 +89,28 @@ fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
 fn parse_list(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, ParseError> {
     expect(tokens, Token::LParen)?;
 
-    let mut list: Vec<Expr> = Vec::new();
-
+    // Parse all elements of list, then build the cons cells bottom up
+    let mut stack: Vec<Expr> = Vec::new();
     while !matches!(tokens.peek(), Some(Token::RParen)) {
-        let expr = parse_expr(tokens)?;
-        list.push(expr);
+        stack.push(parse_expr(tokens)?);
+    }
+
+    let mut lower_cons = Cons {
+        car: Box::new(stack.pop().ok_or(ParseError::UnexpectedEndOfList)?),
+        cdr: Box::new(Expr::Nil),
+    };
+    while let Some(expr) = stack.pop() {
+        let root_cons = Cons {
+            car: Box::new(expr),
+            cdr: Box::new(Expr::Cons(lower_cons)),
+        };
+
+        lower_cons = root_cons;
     }
 
     expect(tokens, Token::RParen)?;
 
-    Ok(Expr::List(list))
+    Ok(Expr::List(lower_cons))
 }
 
 // consumes the token if it matches

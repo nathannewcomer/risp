@@ -5,6 +5,7 @@ use std::str::Chars;
 pub enum Token {
     Number(f64),
     String(String),
+    Symbol(String),
     LParen,
     RParen,
     Dot,
@@ -35,6 +36,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
                 chars.next();
                 Token::RParen
             }
+            '"' => tokenize_string(&mut chars)?,
             '.' => {
                 chars.next();
                 Token::Dot
@@ -50,6 +52,17 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
     tokens.push(Token::EOF);
 
     Ok(tokens)
+}
+
+fn tokenize_string(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError> {
+    expect(chars, '"')?;
+    let mut string = String::new();
+    while let Some(c) = chars.next_if(|ch| is_valid_symbol_char(ch)) {
+        string.push(c);
+    }
+    expect(chars, '"')?;
+
+    Ok(Token::String(string))
 }
 
 fn tokenize_symbol(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError> {
@@ -70,6 +83,14 @@ fn is_valid_symbol_char(c: &char) -> bool {
         '-' | '$' | '!' | '@' | '#' | '%' | '^' | '&' | '*' | '<' | '>' | '.' | '+' | '=' => true,
         ch if ch.is_ascii_alphanumeric() => true,
         _ => false,
+    }
+}
+
+// consumes the token if it matches
+fn expect(chars: &mut Peekable<Chars<'_>>, char: char) -> Result<(), LexerError> {
+    match chars.next_if(|c| matches!(c, char)) {
+        Some(_) => Ok(()),
+        None => Err(LexerError::UnknownSymbol(char)),
     }
 }
 

@@ -4,7 +4,17 @@ use crate::parser::Expr;
 pub enum Object {
     Number(f64),
     Atom(String),
+    Symbol(Symbol),
     Nil,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum Symbol {
+    Variable(Expr),
+    Function {
+        name: String,
+        def: fn(&Expr) -> Result<Object, EvalError>,
+    },
 }
 
 impl Object {
@@ -13,6 +23,7 @@ impl Object {
             Object::Number(num) => num.to_string(),
             Object::Atom(s) => s.clone(),
             Object::Nil => "Nil".to_string(),
+            Object::Symbol(sym) =>
         }
     }
 }
@@ -44,6 +55,12 @@ fn evaluate_list(list: &Vec<Expr>) -> Result<Object, EvalError> {
         }
     } else {
         Err(EvalError::ExpectedFunction)
+    }
+}
+
+fn builtin(symbol: &str) -> Option<fn(&Expr) -> Result<Object, EvalError>> {
+    match symbol {
+        "+" => Some(builtin_add),
     }
 }
 
