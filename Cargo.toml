@@ -3,4 +3,10 @@ name = "nisp"
 version = "0.1.0"
 edition = "2024"
 
+[dev-dependencies]
+proptest = "1.11.0"
+test-strategy = "0.4.5"
+
 [dependencies]
+proptest = "1.11.0"
+test-strategy = "0.4.5"

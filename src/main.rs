@@ -38,10 +38,14 @@ fn main() {
             }
         };
 
+        println!("Parsed '{}'", expr.print());
+
+        let scope = eval::create_builtins();
+
         // Evaluate
-        let eval = eval::evaluate(&expr);
+        let eval = eval::evaluate(&expr, &scope);
         match eval {
-            Ok(obj) => println!("{:?}", obj.print()),
+            Ok(obj) => println!("{}", obj.print()),
             Err(err) => println!("{:?}", err),
         }
     }
