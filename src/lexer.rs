@@ -59,8 +59,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
                 chars.next();
                 Token::Dot
             }
-            ch if *ch == '-' || ch.is_numeric() => tokenize_number(&mut chars)?,
-            ch if is_valid_symbol_char(ch) => tokenize_symbol(&mut chars)?,
+            ch if is_valid_symbol_char(ch) => tokenize_symbol_or_number(&mut chars)?,
             ch => return Err(LexerError::UnknownSymbol(ch.clone())),
         };
 
@@ -84,27 +83,17 @@ fn tokenize_string(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError>
     Ok(Token::String(string))
 }
 
-fn tokenize_number(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError> {
-    let mut number = String::new();
-    while let Some(c) = chars.next_if(|ch| ch.is_numeric() || *ch == '-' || *ch == '.') {
-        number.push(c);
-    }
-
-    let Ok(n) = number.parse::<f64>() else {
-        return Err(LexerError::InvalidNumber(number));
-    };
-
-    Ok(Token::Number(n))
-}
-
-fn tokenize_symbol(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError> {
+fn tokenize_symbol_or_number(chars: &mut Peekable<Chars<'_>>) -> Result<Token, LexerError> {
     // parse until space
     let mut symbol = String::new();
     while let Some(c) = chars.next_if(|ch| is_valid_symbol_char(ch)) {
         symbol.push(c);
     }
 
-    Ok(Token::Symbol(symbol))
+    match symbol.parse::<f64>() {
+        Ok(num) => Ok(Token::Number(num)),
+        Err(_) => Ok(Token::Symbol(symbol)),
+    }
 }
 
 fn is_valid_symbol_char(c: &char) -> bool {

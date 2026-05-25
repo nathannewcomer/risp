@@ -22,6 +22,15 @@ impl Object {
     }
 }
 
+impl Object {
+    pub fn as_number(&self) -> Result<f64, EvalError> {
+        match self {
+            Object::Atom(Atom::Number(n)) => Ok(*n),
+            _ => Err(EvalError::ExpectedNumber),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub enum Atom {
     Number(f64),
@@ -30,8 +39,8 @@ pub enum Atom {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Symbol {
-    name: String,
-    value: SymbolVal,
+    pub name: String,
+    pub value: SymbolVal,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -52,7 +61,6 @@ impl SymbolVal {
 #[derive(PartialEq, Debug)]
 pub enum EvalError {
     ExpectedNumber,
-    ExpectedFunction,
     UnexpectedEndOfList,
     ListDoesNotStartWithFunction,
     SymbolNotFound(String),
@@ -84,11 +92,13 @@ fn evaluate_list(list: &[Expr], scope: &[Symbol]) -> Result<Object, EvalError> {
 
     // Get symbol - make sure it's a function definition
     let symbol = evaluate(symbol_expr, scope)?;
-    if let Object::Symbol(Symbol { name: _, value }) = symbol {
-        if let SymbolVal::Function(func) = value {
-            let evaluated_args = evaluate_collection(args, scope)?;
-            return func(&evaluated_args);
-        }
+    if let Object::Symbol(Symbol {
+        name: _,
+        value: SymbolVal::Function(func),
+    }) = symbol
+    {
+        let evaluated_args = evaluate_collection(args, scope)?;
+        return func(&evaluated_args);
     }
 
     return Err(EvalError::ListDoesNotStartWithFunction);
@@ -96,37 +106,7 @@ fn evaluate_list(list: &[Expr], scope: &[Symbol]) -> Result<Object, EvalError> {
 
 // Used for evaluating the args of a list before calling the function
 fn evaluate_collection(args: &[Expr], scope: &[Symbol]) -> Result<Vec<Object>, EvalError> {
-    let mut result: Vec<Object> = Vec::new();
-
-    for expr in args {
-        result.push(evaluate(expr, scope)?);
-    }
-
-    Ok(result)
-}
-
-pub fn create_builtins() -> Vec<Symbol> {
-    let mut builtins: Vec<Symbol> = Vec::new();
-
-    // add
-    builtins.push(Symbol {
-        name: "+".to_string(),
-        value: SymbolVal::Function(builtin_add),
-    });
-
-    builtins
-}
-
-fn builtin_add(args: &[Object]) -> Result<Object, EvalError> {
-    let mut sum: f64 = 0.0;
-
-    for arg in args {
-        if let Object::Atom(Atom::Number(num)) = arg {
-            sum += num;
-        } else {
-            return Err(EvalError::ExpectedNumber);
-        }
-    }
-
-    Ok(Object::Atom(Atom::Number(sum)))
+    args.iter()
+        .map(|e| evaluate(e, scope))
+        .collect::<Result<Vec<Object>, EvalError>>()
 }

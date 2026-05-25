@@ -1,6 +1,7 @@
 use std::io;
 use std::io::Write;
 
+mod builtin;
 mod eval;
 mod lexer;
 mod parser;
@@ -40,7 +41,7 @@ fn main() {
 
         println!("Parsed '{}'", expr.print());
 
-        let scope = eval::create_builtins();
+        let scope = builtin::create_builtins();
 
         // Evaluate
         let eval = eval::evaluate(&expr, &scope);
